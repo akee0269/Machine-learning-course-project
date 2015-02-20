@@ -1,0 +1,48 @@
+# Predict how (well) an activity is performed by a 'device' wearer
+Author: Akshat Narain
+
+## Objective of this exercise is to create a prediction algorithm to predict "how well enthusiasts do exercise" based on Weight Lifting Exercises dataset
+```{r, echo=TRUE,message=FALSE,results='hide', warning=FALSE}
+
+#Load required libraries
+library(lubridate)
+library(Hmisc)
+library(ggplot2)
+library(caret)
+library(dplyr)
+library(reshape2)
+library(gridExtra)
+library(randomForest)
+```
+# Read data (assuming files in R working directory) and Pre-process
+```{r, echo=TRUE}
+data <- read.csv("pml-training.csv")
+```
+#Check data characteristics
+```{r, echo=TRUE,results='hide'}
+summary(data)
+```
+- Predictors with missing values are ignored since they cannot be used for prediction
+- Columns starting with **roll,pitch,yaw,magnet,gyros,accel,classe** show variation and can be used for prediction of classe
+- The data is read and partitioned into test and training sets. It is important to pick predictors which most explain the variation in output hence remove predictors with zero variance and then run principal component analysis - Predictors such as user_name can be easily ignored since we can safely say these are not predictors of output classe from understanding of data
+- new_window and num_window are categorical variables. They should have factor datatype.
+- All other variables except classe are numerical variables. NA values should be removed and there datatype should be converted to int before doing nearZeroVar and PCA
+
+#Data Manipulation and Random Forest Model
+```{r,echo=TRUE}
+impvar <- grep("^roll|^pitch|^yaw|^magnet|^gyros|^accel|^classe",names(data),value=TRUE)
+selectcol <- names(data) %in% impvar
+data <- data[,selectcol]
+
+# Create test and training sets and do random forest analysis
+inTrain <- createDataPartition(y=data$classe,p=0.7,list=FALSE)
+train <- data[inTrain,]
+test <- data[-inTrain,]
+#modfit <- train(classe~.,data=train,method="gbm",verbose=FALSE)
+modfit <- randomForest(classe~.,data=train)
+print(modfit)
+pred <- predict(modfit,test)
+#table(pred,test$classe)
+confusionMatrix(pred,test$classe)
+```
+- randomForest tree methodology appropriately uses with cross-validation by default since it runs multiple tress, predict probabilities, and averages them out across all trees. In this case, total trees=500
